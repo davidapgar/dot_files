@@ -1,0 +1,136 @@
+findtag() {
+    local ref=$1
+    local gitdir=$2
+    if [ -z "$gitdir" -o -z "$ref" ]; then
+        echo "Bad arguments of '$ref' '$gitdir'"
+        return 1
+    fi
+    for tag in `find $gitdir/refs/tags -type f`; do
+        grep $ref $tag > /dev/null
+        if [ $? == 0 ]; then
+            striped="${tag#$gitdir/refs/tags}"
+            echo $striped
+            return 0
+        fi
+    done
+}
+
+maptag() {
+    local head=$1
+    local gitdir=$2
+    local branch=""
+    if [ -z "$head" -o -z "$gitdir" ]; then
+        echo "Bad args to maptag"
+        return 1
+    fi
+    # Revert to this if tag searching is too slow.
+    #branch="d:${head:0:7}"
+    #echo $branch
+    #return 0
+
+    local tag=`grep $head $gitdir/packed-refs`
+    if [ ! -z "$tag" ]; then
+        branch="tag:${tag##*refs/tags/}"
+    else
+        tag=`findtag "$head" "$gitdir"`
+        if [ -z "$tag" ]; then
+            branch="d:${head:0:7}"
+        else
+            branch="tag:$tag"
+            fi
+    fi
+    echo $branch
+}
+
+mapref() {
+    local head=$1
+    local gitdir=$2
+    local branch=""
+    if [ -z "$head" -o -z "$gitdir" ]; then
+        echo "Bad args to mapref"
+        return 1
+    fi
+
+    case "$head" in
+        ref:*)
+            branch="${head##*/}"
+            ;;
+        "")
+            branch=""
+            ;;
+        *)
+            branch=`maptag "$head" "$gitdir"`
+            ;;
+    esac
+    echo $branch
+}
+
+# Fast git branch from: https://gist.github.com/wolever/6525437
+gitbranch() {
+    export GITBRANCH=""
+ 
+    local repo="${_GITBRANCH_LAST_REPO-}"
+    local gitdir=""
+#    [[ ! -z "$repo" ]] && gitdir="$repo/.git"
+
+    # If we don't have a last seen git repo, or we are in a different directory
+    if [[ -z "$repo" || "$PWD" != "$repo"* || ! -e "$gitdir" ]]; then
+        local cur="$PWD"
+        while [[ ! -z "$cur" ]]; do
+            if [[ -e "$cur/.git" ]]; then
+                repo="$cur"
+                gitdir="$cur/.git"
+                break
+            fi
+            cur="${cur%/*}"
+        done
+    fi
+ 
+    if [[ -z "$gitdir" ]]; then
+        unset _GITBRANCH_LAST_REPO
+        return 0
+    fi
+
+    # Find the git directory for a submodule
+    if [ -f $gitdir ]; then
+        local gitdirLoc
+        read gitdirLoc < "$gitdir"
+        pattern="gitdir: (.*)"
+        if [[ $gitdirLoc =~ $pattern ]]; then
+            gitdirRelative="${BASH_REMATCH[1]}"
+            local absolute="^/.*"
+            if [[ $gitdirRelative =~ $absolute ]]; then
+                gitdir="$gitdirRelative"
+            else
+                gitdir="$repo/$gitdirRelative"
+            fi
+        else
+            echo "Failed to find git dir in $gitdirLoc"
+            export GITBRANCH="Failed to find git dir in $gitdirLoc"
+            return 0
+        fi
+    fi
+
+    export _GITBRANCH_LAST_REPO="${repo}"
+    local head=""
+    local branch=""
+    read head < "$gitdir/HEAD"
+
+    branch=`mapref "$head" "$gitdir"`
+    if [[ -z "$branch" ]]; then
+        export GITBRANCH=""
+        return 0
+    fi
+    export GITBRANCH="$branch"
+}
+
+
+COLOR_LIGHT_CYAN='\e[1;36m'
+COLOR_NC='\e[0m' # No Color
+export PS1="\A \u@\h:[\[${COLOR_LIGHT_CYAN}\]\$GITBRANCH\[${COLOR_NC}\]]\w$ "
+_mk_prompt() {
+    gitbranch
+    export PS1="\A \u@\h:[\[${COLOR_LIGHT_CYAN}\]\$GITBRANCH\[${COLOR_NC}\]]\w$ "
+}
+export PROMPT_COMMAND=_mk_prompt
+

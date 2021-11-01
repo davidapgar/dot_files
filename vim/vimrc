@@ -1,0 +1,32 @@
+syntax on
+set autochdir
+set tabstop=4
+set shiftwidth=4
+set expandtab
+set hlsearch
+
+if has('gui_running')
+  set background=dark
+  colorscheme c0m
+endif
+
+if has('gui_macvim')
+  set background=dark
+  colorscheme c0m
+endif
+
+set tags=tags;/
+set number
+set ruler
+
+"map <C-n> :tabn<CR>
+"map <C-p> :tabp<CR>
+map <C-n> :tn<CR>
+map <C-p> :tp<CR>
+
+" omnicomplete
+imap <C-f> <C-x><C-o>
+
+if filereadable(".vim.custom")
+    so .vim.custom
+endif
