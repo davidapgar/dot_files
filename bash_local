@@ -18,7 +18,7 @@ export COLOR_LIGHT_GRAY='\e[0;37m'
 
 export PS1="\A \u@\h:[[${COLOR_LIGHT_CYAN}\]NO-GIT-PROMPT[${COLOR_NC}\]]\w$ "
 
-if [ -f "~/.gitprompt" ]; then
+if [ -f ~/.gitprompt ]; then
     source ~/.gitprompt
 fi
 
